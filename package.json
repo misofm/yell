@@ -1,0 +1,27 @@
+{
+  "name": "@misofm/yell",
+  "version": "0.0.0",
+  "description": "Notifications for services, as an Effect program: one notice shape, fanned out to channel adapters (Slack, Discord, webhooks, the console).",
+  "type": "module",
+  "license": "Apache-2.0",
+  "repository": { "type": "git", "url": "https://github.com/misofm/yell.git" },
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" }
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test test/",
+    "check": "tsc --noEmit && bun test test/ && bun run build"
+  },
+  "peerDependencies": {
+    "effect": ">=4.1.1 <4.2"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.2",
+    "effect": "4.1.1",
+    "typescript": "5.9.3"
+  }
+}
