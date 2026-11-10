@@ -4,7 +4,8 @@
 /**
  * `Yell`: sends a notice to every channel at once. Sending never fails and never throws: a
  * notification must not break the service sending it, so the answer is a report of what was
- * delivered, skipped or failed (and failures are logged).
+ * delivered, skipped or failed (and failures are logged). A notice that doesn't fit `Notice`
+ * is made to fit (`normalizeNotice`) rather than dropped.
  *
  * Repeats are throttled: a notice with the same key (`noticeKey`) as one sent less than
  * `cooldown` ago is held back, and the next one that goes out says how many were held back.
@@ -13,7 +14,7 @@
 
 import { Context, Duration, Effect, Layer } from "effect";
 import type { Channel } from "./Channel.ts";
-import { levelRank, type Notice, noticeKey } from "./Notice.ts";
+import { levelRank, type Notice, noticeKey, normalizeNotice } from "./Notice.ts";
 
 /** What happened to one notice. */
 export type Report =
@@ -50,8 +51,9 @@ export class Yell extends Context.Service<Yell, YellService>()("@misofm/yell/Yel
     /** Key → when its last notice went out, and how many were held back since. */
     const recent = new Map<string, { sentAt: number; held: number }>();
     return {
-      send: (notice) =>
+      send: (raw) =>
         Effect.gen(function* () {
+          const notice = normalizeNotice(raw);
           const key = noticeKey(notice);
           const at = now();
           const last = recent.get(key);

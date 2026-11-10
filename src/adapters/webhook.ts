@@ -10,7 +10,7 @@
 import { Schema } from "effect";
 import type { Channel } from "../Channel.ts";
 import { type Level, Notice } from "../Notice.ts";
-import { defaultFetch, type Fetch, postJson } from "./http.ts";
+import { defaultFetch, type Fetch, type PostOptions, postJson } from "./http.ts";
 
 const encode = Schema.encodeSync(Notice);
 
@@ -21,13 +21,12 @@ export const webhook = (options: {
   readonly minLevel?: Level;
   readonly name?: string;
   readonly fetch?: Fetch;
-  readonly timeoutMillis?: number;
-}): Channel => {
+} & PostOptions): Channel => {
   const name = options.name ?? "webhook";
   return {
     name,
     ...(options.minLevel ? { minLevel: options.minLevel } : {}),
-    deliver: (notice) => postJson(name, options.fetch ?? defaultFetch, options.url, encode(notice), options.timeoutMillis ?? 5_000, options.headers),
+    deliver: (notice) => postJson(name, options.fetch ?? defaultFetch, options.url, encode(notice), options, options.headers),
   };
 };
 
@@ -35,11 +34,12 @@ export const webhook = (options: {
  * Another Yell: a notification service. `binding` is a Cloudflare service binding (or any
  * object with `fetch`); `url` is the path it answers on (the host is not used by a binding).
  */
-export const relay = (options: { readonly binding: { fetch: Fetch }; readonly url?: string; readonly minLevel?: Level; readonly name?: string; readonly timeoutMillis?: number }): Channel =>
+export const relay = (options: { readonly binding: { fetch: Fetch }; readonly url?: string; readonly minLevel?: Level; readonly name?: string } & PostOptions): Channel =>
   webhook({
+    ...(options.minLevel ? { minLevel: options.minLevel } : {}),
+    ...(options.timeoutMillis !== undefined ? { timeoutMillis: options.timeoutMillis } : {}),
+    ...(options.retries !== undefined ? { retries: options.retries } : {}),
     url: options.url ?? "https://yell.internal/notices",
     name: options.name ?? "relay",
     fetch: (request) => options.binding.fetch(request),
-    ...(options.minLevel ? { minLevel: options.minLevel } : {}),
-    ...(options.timeoutMillis ? { timeoutMillis: options.timeoutMillis } : {}),
   });

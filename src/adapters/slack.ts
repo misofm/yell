@@ -5,7 +5,7 @@
 
 import type { Channel } from "../Channel.ts";
 import type { Level, Notice } from "../Notice.ts";
-import { clip, defaultFetch, type Fetch, postJson } from "./http.ts";
+import { clip, defaultFetch, type Fetch, type PostOptions, postJson } from "./http.ts";
 
 const EMOJI: Record<Level, string> = { info: ":large_blue_circle:", warning: ":large_orange_circle:", critical: ":red_circle:" };
 
@@ -29,11 +29,11 @@ export const slackMessage = (notice: Notice) => ({
 /** Slack's mrkdwn control characters, so a notice's text can't format or mention. */
 const escape = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-export const slack = (options: { readonly webhookUrl: string; readonly minLevel?: Level; readonly name?: string; readonly fetch?: Fetch; readonly timeoutMillis?: number }): Channel => {
+export const slack = (options: { readonly webhookUrl: string; readonly minLevel?: Level; readonly name?: string; readonly fetch?: Fetch } & PostOptions): Channel => {
   const name = options.name ?? "slack";
   return {
     name,
     ...(options.minLevel ? { minLevel: options.minLevel } : {}),
-    deliver: (notice) => postJson(name, options.fetch ?? defaultFetch, options.webhookUrl, slackMessage(notice), options.timeoutMillis ?? 5_000),
+    deliver: (notice) => postJson(name, options.fetch ?? defaultFetch, options.webhookUrl, slackMessage(notice), options),
   };
 };

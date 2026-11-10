@@ -1,15 +1,45 @@
 {
   "name": "@misofm/yell",
-  "version": "0.0.0",
-  "description": "Notifications for services, as an Effect program: one notice shape, fanned out to channel adapters (Slack, Discord, webhooks, the console).",
-  "type": "module",
-  "license": "Apache-2.0",
-  "repository": { "type": "git", "url": "https://github.com/misofm/yell.git" },
-  "exports": {
-    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" }
+  "version": "0.1.0",
+  "description": "Notifications for services, as an Effect program: describe what happened once, fan it out to Slack, Discord, webhooks and logs, without ever breaking the caller.",
+  "keywords": [
+    "effect",
+    "notifications",
+    "alerts",
+    "slack",
+    "discord",
+    "webhook",
+    "cloudflare-workers",
+    "typescript"
+  ],
+  "homepage": "https://github.com/misofm/yell#readme",
+  "bugs": {
+    "url": "https://github.com/misofm/yell/issues"
   },
-  "files": ["dist", "README.md", "LICENSE"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/misofm/yell.git"
+  },
+  "license": "Apache-2.0",
+  "author": "Miso Labs, Inc.",
+  "type": "module",
   "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
@@ -23,5 +53,9 @@
     "@types/bun": "1.4.2",
     "effect": "4.1.1",
     "typescript": "5.9.3"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   }
 }

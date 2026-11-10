@@ -9,8 +9,8 @@ import type { Level } from "../Notice.ts";
 
 const LOG = { info: Effect.logInfo, warning: Effect.logWarning, critical: Effect.logError } as const;
 
-export const console = (options: { readonly minLevel?: Level; readonly name?: string } = {}): Channel => ({
-  name: options.name ?? "console",
+export const log = (options: { readonly minLevel?: Level; readonly name?: string } = {}): Channel => ({
+  name: options.name ?? "log",
   ...(options.minLevel ? { minLevel: options.minLevel } : {}),
   deliver: (notice) => LOG[notice.level](`yell: ${notice.title}`, { source: notice.source, body: notice.body, fields: notice.fields, link: notice.link?.url, at: notice.at }),
 });

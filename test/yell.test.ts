@@ -3,7 +3,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { Effect, Schema } from "effect";
-import { type Channel, DeliveryFailed, decodeNotice, discord, type Notice, relay, slack, webhook, Yell } from "../src/index.ts";
+import { type Channel, DeliveryFailed, decodeNotice, discord, discordMessage, LIMITS, log, type Notice, normalizeNotice, relay, slack, webhook, Yell } from "../src/index.ts";
 
 const notice: Notice = { title: "Pool stock low", level: "warning", source: "miso-share-currency-pool-service-testnet", fields: [{ name: "Compositions ready", value: "3" }] };
 const run = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromise(effect);
@@ -49,6 +49,29 @@ describe("Yell", () => {
     await run(yell.send(notice));
     expect(a.got).toHaveLength(3);
     expect(a.got[2]?.fields?.at(-1)).toEqual({ name: "Held back", value: "2 more like this since the last one" });
+  });
+});
+
+describe("normalizeNotice", () => {
+  test("a notice that doesn't fit is made to fit, never dropped", async () => {
+    const a = recorder("a");
+    const messy = { title: "t".repeat(500), level: "critical", source: "", body: "", fields: Array.from({ length: 12 }, (_, i) => ({ name: `f${i}`, value: "" })), link: { label: "x", url: "javascript:alert(1)" }, at: "yesterday" } as Notice;
+    expect(await run(Yell.make({ channels: [a.channel] }).send(messy))).toMatchObject({ _tag: "Sent", delivered: ["a"] });
+    const sent = a.got[0]!;
+    expect([...sent.title].length).toBe(LIMITS.title);
+    expect(sent.title.endsWith("…")).toBe(true);
+    expect(sent.source).toBe("(unknown)");
+    expect(sent.body).toBeUndefined();
+    expect(sent.fields).toHaveLength(10);
+    expect(sent.fields?.[0]?.value).toBe("-");
+    expect(sent.link).toBeUndefined();
+    expect(Number.isNaN(Date.parse(sent.at!))).toBe(false);
+    // What comes out is a valid Notice: it survives the wire.
+    expect(await run(decodeNotice(JSON.parse(JSON.stringify(sent))))).toEqual(sent);
+  });
+
+  test("a valid notice is unchanged", () => {
+    expect(normalizeNotice(notice)).toEqual(notice);
   });
 });
 
@@ -98,6 +121,34 @@ describe("adapters", () => {
     expect(JSON.stringify(failed)).not.toContain("SECRET");
     const unreachable = await run(Effect.flip(webhook({ url: "https://x.test/SECRET", fetch: () => Promise.reject(new TypeError("fetch failed")) }).deliver(notice)));
     expect(unreachable.reason).toBe("could not be reached");
+  });
+
+  test("discord keeps the embed within Discord's 6 000 characters", () => {
+    const big: Notice = { ...notice, title: "t".repeat(200), body: "b".repeat(4000), fields: Array.from({ length: 10 }, (_, i) => ({ name: `n${i}`.padEnd(100, "n"), value: "v".repeat(500) })) };
+    const embed = discordMessage(big).embeds[0]!;
+    const total = [embed.title, embed.description ?? "", embed.footer.text, ...embed.fields.flatMap((f) => [f.name, f.value])].reduce((n, t) => n + [...t].length, 0);
+    expect(total).toBeLessThanOrEqual(6000);
+    expect(embed.description?.endsWith("…")).toBe(true);
+  });
+
+  test("a 429 or 5xx is retried once, honouring Retry-After; another 4xx never is", async () => {
+    const answers = [new Response("slow down", { status: 429, headers: { "retry-after": "0" } }), new Response("ok")];
+    let calls = 0;
+    const flaky = async () => (calls++, answers.shift()!);
+    await run(slack({ webhookUrl: "https://hooks.slack.com/x", fetch: flaky }).deliver(notice));
+    expect(calls).toBe(2);
+    calls = 0;
+    const gone = async () => (calls++, new Response("no", { status: 404 }));
+    expect((await run(Effect.flip(slack({ webhookUrl: "https://hooks.slack.com/x", fetch: gone }).deliver(notice)))).reason).toBe("answered HTTP 404");
+    expect(calls).toBe(1);
+    calls = 0;
+    const down = async () => (calls++, new Response("", { status: 503, headers: { "retry-after": "0" } }));
+    expect((await run(Effect.flip(slack({ webhookUrl: "https://hooks.slack.com/x", fetch: down, retries: 2 }).deliver(notice)))).reason).toBe("answered HTTP 503");
+    expect(calls).toBe(3);
+  });
+
+  test("log is a channel that always works", async () => {
+    expect(await run(Yell.make({ channels: [log()] }).send(notice))).toMatchObject({ _tag: "Sent", delivered: ["log"] });
   });
 
   test("relay posts the notice itself, which the other end decodes as it was", async () => {
